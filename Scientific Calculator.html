@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scientific Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#0B0F1A; --bg2:#121a2b; --panel:rgba(255,255,255,0.045); --panel-b:rgba(255,255,255,0.09);
+  --txt:#EAF0FF; --sub:#8b96b3; --accent:#7C9BFF; --accent2:#B08CFF; --op:#1c2438;
+  --op-h:#242f4a; --danger:#FF6B7A; --good:#41E3A8;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%; margin:0;}
+body{
+  background:radial-gradient(1200px 600px at 20% -10%, #182140 0%, var(--bg1) 60%), var(--bg1);
+  font-family:'Inter',sans-serif; color:var(--txt); display:flex; align-items:flex-start; justify-content:center;
+  padding:28px 14px 40px; min-height:100%;
+}
+.app{width:100%; max-width:940px; display:grid; grid-template-columns:1fr 300px; gap:16px;}
+@media (max-width:820px){ .app{grid-template-columns:1fr;} }
+
+.card{
+  background:var(--panel); border:1px solid var(--panel-b); border-radius:22px; backdrop-filter:blur(18px);
+  box-shadow:0 20px 50px -20px rgba(0,0,0,0.6);
+}
+.calc{padding:18px;}
+.tabs{display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;}
+.tab{
+  background:transparent; border:1px solid var(--panel-b); color:var(--sub); font:500 12.5px 'Inter';
+  padding:7px 12px; border-radius:10px; cursor:pointer; transition:.15s;
+}
+.tab.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0B0F1A; border-color:transparent; font-weight:600;}
+
+.modebar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+.angle-modes{display:flex; gap:4px; background:var(--op); border-radius:10px; padding:3px;}
+.angle-modes button{
+  background:transparent; border:none; color:var(--sub); font:600 11px 'Inter'; padding:6px 10px; border-radius:8px; cursor:pointer;
+}
+.angle-modes button.active{background:var(--accent); color:#0B0F1A;}
+.mem-badge{font:600 11px 'Inter'; color:var(--good); opacity:0; transition:.2s;}
+.mem-badge.show{opacity:1;}
+
+.display{padding:16px 6px 10px; text-align:right;}
+.expr{
+  min-height:20px; color:var(--sub); font:500 14px 'Space Grotesk'; overflow-x:auto; white-space:nowrap;
+  scrollbar-width:none;
+}
+.expr::-webkit-scrollbar{display:none;}
+.result{
+  font:600 clamp(30px,7vw,44px) 'Space Grotesk'; margin-top:4px; overflow-x:auto; white-space:nowrap; scrollbar-width:none;
+  transition:transform .12s ease;
+}
+.result::-webkit-scrollbar{display:none;}
+.result.err{color:var(--danger); font-size:clamp(15px,3.3vw,18px); font-family:'Inter'; font-weight:500;}
+.result.pop{transform:scale(1.04);}
+
+.grid{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:14px;}
+.grid.std{grid-template-columns:repeat(4,1fr);}
+button.key{
+  border:none; border-radius:13px; padding:14px 0; font:600 15px 'Space Grotesk'; color:var(--txt);
+  background:var(--op); cursor:pointer; transition:transform .08s ease, background .15s; position:relative; overflow:hidden;
+}
+button.key:hover{background:var(--op-h);}
+button.key:active{transform:scale(0.94);}
+button.key.fn{background:transparent; border:1px solid var(--panel-b); font-size:12.5px; color:var(--sub); font-family:'Inter'; font-weight:500;}
+button.key.fn:hover{color:var(--txt); border-color:var(--accent);}
+button.key.op{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0B0F1A;}
+button.key.eq{background:var(--good); color:#0B0F1A;}
+button.key.clr{background:var(--danger); color:#0B0F1A;}
+button.key.mem{background:transparent; border:1px solid var(--panel-b); color:var(--sub); font:600 12px 'Inter';}
+.ripple{position:absolute; border-radius:50%; background:rgba(255,255,255,0.35); transform:scale(0); animation:rip .5s ease-out; pointer-events:none;}
+@keyframes rip{to{transform:scale(3); opacity:0;}}
+
+.side{padding:16px; display:flex; flex-direction:column; max-height:640px;}
+.side h3{margin:0 0 10px; font:600 14px 'Inter'; display:flex; justify-content:space-between; align-items:center;}
+.side h3 button{background:transparent; border:none; color:var(--sub); font:500 11.5px 'Inter'; cursor:pointer;}
+.side h3 button:hover{color:var(--danger);}
+.hist-list{overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:6px;}
+.hist-item{
+  background:var(--panel); border:1px solid var(--panel-b); border-radius:10px; padding:9px 10px; cursor:pointer;
+  transition:.15s; animation:slidein .25s ease; display:flex; justify-content:space-between; gap:6px;
+}
+.hist-item:hover{border-color:var(--accent);}
+@keyframes slidein{from{opacity:0; transform:translateX(8px);} to{opacity:1; transform:translateX(0);}}
+.hist-item .h-expr{font:500 11px 'Inter'; color:var(--sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.hist-item .h-res{font:600 14px 'Space Grotesk';}
+.hist-item .h-del{background:none; border:none; color:var(--sub); cursor:pointer; font-size:14px; align-self:flex-start;}
+.hist-item .h-del:hover{color:var(--danger);}
+.hist-empty{color:var(--sub); font:400 12.5px 'Inter'; text-align:center; margin-top:20px;}
+.tooltip{
+  position:fixed; background:#0B0F1A; border:1px solid var(--panel-b); color:var(--txt); font:500 11.5px 'Inter';
+  padding:6px 9px; border-radius:8px; pointer-events:none; z-index:50; opacity:0; transition:opacity .12s; max-width:180px;
+}
+.tooltip.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card calc">
+    <div class="tabs">
+      <button class="tab active" data-mode="std">Standard</button>
+      <button class="tab" data-mode="sci">Scientific</button>
+    </div>
+    <div class="modebar">
+      <div class="angle-modes" id="angleModes">
+        <button data-ang="DEG" class="active">DEG</button>
+        <button data-ang="RAD">RAD</button>
+        <button data-ang="GRAD">GRAD</button>
+      </div>
+      <div class="mem-badge" id="memBadge">M</div>
+    </div>
+    <div class="display">
+      <div class="expr" id="exprLine">&nbsp;</div>
+      <div class="result" id="resultLine">0</div>
+    </div>
+    <div class="grid" id="sciGrid"></div>
+  </div>
+  <div class="card side">
+    <h3>History <button id="clearHist">Clear all</button></h3>
+    <div class="hist-list" id="histList"><div class="hist-empty">No calculations yet</div></div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ---------- Safe expression parser (recursive descent) ----------
+const TIPS = {sin:'Sine',cos:'Cosine',tan:'Tangent',cot:'Cotangent',sec:'Secant',csc:'Cosecant',
+asin:'Inverse sine',acos:'Inverse cosine',atan:'Inverse tangent',
+sinh:'Hyperbolic sine',cosh:'Hyperbolic cosine',tanh:'Hyperbolic tangent',
+log:'Log base 10',ln:'Natural log',log2:'Log base 2',sqrt:'Square root',
+cbrt:'Cube root',nrt:'nth root',sq:'Square (x²)',cube:'Cube (x³)',pow:'x to the power y',
+tenx:'10 raised to x',ex:'e raised to x',fact:'Factorial',abs:'Absolute value',
+recip:'Reciprocal (1/x)',floor:'Round down',ceil:'Round up',mod:'Modulus (remainder)'};
+
+const CONSTS = {pi:Math.PI, e:Math.E, phi:1.6180339887498949, NA:6.02214076e23, c:299792458, G:6.6743e-11};
+
+function angToRad(x, mode){ return mode==='DEG'? x*Math.PI/180 : mode==='GRAD'? x*Math.PI/200 : x; }
+function radToAng(x, mode){ return mode==='DEG'? x*180/Math.PI : mode==='GRAD'? x*200/Math.PI : x; }
+
+function factorial(n){
+  if(n<0 || !Number.isInteger(n)) throw new Error('Factorial is only defined for non-negative integers.');
+  if(n>170) throw new Error('Number too large.');
+  let r=1; for(let i=2;i<=n;i++) r*=i; return r;
+}
+
+function makeParser(str, angMode){
+  let i=0;
+  function peek(){ return str[i]; }
+  function isDigit(c){ return c>='0'&&c<='9'; }
+  function skipWs(){ while(str[i]===' ') i++; }
+
+  function parseExpr(){ let v=parseTerm(); for(;;){ skipWs(); if(str[i]==='+'){i++; v+=parseTerm();} else if(str[i]==='-'){i++; v-=parseTerm();} else break; } return v; }
+  function parseTerm(){ let v=parsePow(); for(;;){ skipWs(); if(str[i]==='*'){i++; v*=parsePow();} else if(str[i]==='/'){i++; const d=parsePow(); if(d===0) throw new Error('Cannot divide by zero.'); v/=d;} else if(str[i]==='%'&&!isDigit(str[i+1]||'')){i++; v%=parsePow();} else if(!isNaN(parseFloat(str[i]))||'('==str[i]||'π'==str[i]){ v*=parsePow(); } else break; } return v; }
+  function parsePow(){ let v=parseUnary(); skipWs(); if(str[i]==='^'){ i++; const e=parsePow(); v=Math.pow(v,e);} return v; }
+  function parseUnary(){ skipWs(); if(str[i]==='-'){i++; return -parseUnary();} if(str[i]==='+'){i++; return parseUnary();} return parsePostfix(); }
+  function parsePostfix(){ let v=parseAtom(); for(;;){ skipWs(); if(str[i]==='!'){ i++; v=factorial(v);} else if(str[i]==='%'){ i++; v=v/100; } else break; } return v; }
+
+  function parseAtom(){
+    skipWs();
+    if(str[i]==='('){ i++; const v=parseExpr(); skipWs(); if(str[i]!==')') throw new Error('Please check your parentheses.'); i++; return v; }
+    if(isDigit(str[i]) || str[i]==='.'){
+      let s=i; while(isDigit(str[i])||str[i]==='.') i++;
+      if(str[i]==='e'||str[i]==='E'){ i++; if(str[i]==='+'||str[i]==='-') i++; while(isDigit(str[i])) i++; }
+      return parseFloat(str.slice(s,i));
+    }
+    if(str[i]==='π'){ i++; return Math.PI; }
+    // identifiers: functions and constants
+    if(/[a-zA-Z]/.test(str[i])){
+      let s=i; while(/[a-zA-Z0-9]/.test(str[i])) i++;
+      const name=str.slice(s,i);
+      if(str[i]==='('){
+        i++;
+        const args=[parseExpr()];
+        while(str[i]===','){ i++; args.push(parseExpr()); }
+        skipWs(); if(str[i]!==')') throw new Error('Please check your parentheses.'); i++;
+        return applyFunc(name,args);
+      }
+      if(name in CONSTS) return CONSTS[name];
+      throw new Error('Invalid expression.');
+    }
+    throw new Error('Invalid expression.');
+  }
+
+  function applyFunc(name,args){
+    const x=args[0];
+    switch(name){
+      case 'sin': return Math.sin(angToRad(x,angMode));
+      case 'cos': return Math.cos(angToRad(x,angMode));
+      case 'tan': return Math.tan(angToRad(x,angMode));
+      case 'cot': return 1/Math.tan(angToRad(x,angMode));
+      case 'sec': return 1/Math.cos(angToRad(x,angMode));
+      case 'csc': return 1/Math.sin(angToRad(x,angMode));
+      case 'asin': return radToAng(Math.asin(x),angMode);
+      case 'acos': return radToAng(Math.acos(x),angMode);
+      case 'atan': return radToAng(Math.atan(x),angMode);
+      case 'sinh': return Math.sinh(x);
+      case 'cosh': return Math.cosh(x);
+      case 'tanh': return Math.tanh(x);
+      case 'log': return Math.log10(x);
+      case 'ln': return Math.log(x);
+      case 'log2': return Math.log2(x);
+      case 'sqrt': if(x<0) throw new Error('Invalid expression.'); return Math.sqrt(x);
+      case 'cbrt': return Math.cbrt(x);
+      case 'nrt': { const n=args[1]; return Math.sign(x)*Math.pow(Math.abs(x),1/n); }
+      case 'sq': return x*x;
+      case 'cube': return x*x*x;
+      case 'pow': return Math.pow(x,args[1]);
+      case 'tenx': return Math.pow(10,x);
+      case 'ex': return Math.exp(x);
+      case 'fact': return factorial(x);
+      case 'abs': return Math.abs(x);
+      case 'recip': if(x===0) throw new Error('Cannot divide by zero.'); return 1/x;
+      case 'floor': return Math.floor(x);
+      case 'ceil': return Math.ceil(x);
+      case 'mod': return x % args[1];
+      default: throw new Error('Invalid expression.');
+    }
+  }
+
+  return { run(){ const v=parseExpr(); skipWs(); if(i<str.length) throw new Error('Invalid expression.'); if(!isFinite(v)) throw new Error(v===Infinity||v===-Infinity?'Cannot divide by zero.':'Invalid expression.'); return v; } };
+}
+
+function evaluate(str, angMode){
+  if(!str.trim()) return 0;
+  return makeParser(str, angMode).run();
+}
+
+// ---------- App state ----------
+let expr = '';
+let angMode = 'DEG';
+let memory = 0, hasMemory = false;
+let history = JSON.parse(sessionStorage.getItem('calcHist')||'[]');
+let mode = 'std';
+
+const exprLine=document.getElementById('exprLine');
+const resultLine=document.getElementById('resultLine');
+const memBadge=document.getElementById('memBadge');
+const histList=document.getElementById('histList');
+const sciGrid=document.getElementById('sciGrid');
+
+function fmt(n){
+  if(Math.abs(n)>=1e15 || (Math.abs(n)<1e-9 && n!==0)) return n.toExponential(6).replace(/e\+?/,'e');
+  let s=parseFloat(n.toPrecision(12)).toString();
+  return s;
+}
+
+function render(){
+  exprLine.textContent = expr || '\u00A0';
+  try{
+    const v = evaluate(expr, angMode);
+    resultLine.textContent = fmt(v);
+    resultLine.classList.remove('err');
+  }catch(e){
+    resultLine.textContent = expr ? e.message : '0';
+    resultLine.classList.toggle('err', !!expr);
+  }
+  memBadge.classList.toggle('show', hasMemory);
+}
+
+function pop(){ resultLine.classList.add('pop'); setTimeout(()=>resultLine.classList.remove('pop'),120); }
+
+function insert(t){ expr += t; render(); }
+
+function clearAll(){ expr=''; render(); }
+function backspace(){ expr = expr.slice(0,-1); render(); }
+
+function equals(){
+  if(!expr) return;
+  try{
+    const v = evaluate(expr, angMode);
+    addHistory(expr, fmt(v));
+    expr = fmt(v);
+    render(); pop();
+  }catch(e){ /* keep showing error */ }
+}
+
+function addHistory(e,r){
+  history.unshift({e,r,id:Date.now()+Math.random()});
+  history = history.slice(0,40);
+  sessionStorage.setItem('calcHist', JSON.stringify(history));
+  renderHistory();
+}
+function renderHistory(){
+  histList.innerHTML='';
+  if(!history.length){ histList.innerHTML='<div class="hist-empty">No calculations yet</div>'; return; }
+  history.forEach(h=>{
+    const d=document.createElement('div'); d.className='hist-item';
+    d.innerHTML = `<div><div class="h-expr">${h.e}</div><div class="h-res">${h.r}</div></div><button class="h-del">✕</button>`;
+    d.querySelector('.h-del').onclick=(ev)=>{ ev.stopPropagation(); history=history.filter(x=>x.id!==h.id); sessionStorage.setItem('calcHist',JSON.stringify(history)); renderHistory(); };
+    d.onclick=()=>{ expr = h.r; render(); };
+    histList.appendChild(d);
+  });
+}
+document.getElementById('clearHist').onclick=()=>{ history=[]; sessionStorage.setItem('calcHist','[]'); renderHistory(); };
+
+// memory
+function memOp(op){
+  let cur = 0;
+  try{ cur = evaluate(expr||resultLine.textContent, angMode); }catch(e){ return; }
+  if(op==='MC'){ memory=0; hasMemory=false; }
+  else if(op==='MR'){ expr = fmt(memory); }
+  else if(op==='M+'){ memory+=cur; hasMemory=true; }
+  else if(op==='M-'){ memory-=cur; hasMemory=true; }
+  else if(op==='MS'){ memory=cur; hasMemory=true; }
+  render();
+}
+
+// angle mode buttons
+document.getElementById('angleModes').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  angMode=b.dataset.ang;
+  [...document.getElementById('angleModes').children].forEach(c=>c.classList.toggle('active',c===b));
+  render();
+});
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); mode=t.dataset.mode; buildGrid();
+}));
+
+// ---------- Keypad ----------
+const stdKeys = [
+  ['MC','MR','M+','M-','MS'],
+  ['(', ')', '%', '⌫', 'C'],
+  ['7','8','9','÷'],
+  ['4','5','6','×'],
+  ['1','2','3','−'],
+  ['±','0','.','+'],
+];
+const sciExtra = [
+  ['sin(','cos(','tan(','cot(','sec('],
+  ['csc(','asin(','acos(','atan(','log('],
+  ['ln(','log2(','sqrt(','cbrt(','abs('],
+  ['x²','x³','xʸ','10ˣ','eˣ'],
+  ['n!','1/x','⌊x⌋','⌈x⌉','mod'],
+  ['π','e','φ','Nₐ','c'],
+];
+
+const KEYMAP = { '÷':'/', '×':'*', '−':'-', 'x²':'sq(', 'x³':'cube(', 'xʸ':'pow(', '10ˣ':'tenx(', 'eˣ':'ex(', 'n!':'!', '1/x':'recip(', '⌊x⌋':'floor(', '⌈x⌉':'ceil(', 'mod':'mod(', 'φ':'phi', 'Nₐ':'NA', 'c':'c' };
+
+function ripple(btn,ev){
+  const r=document.createElement('span'); r.className='ripple';
+  const rect=btn.getBoundingClientRect();
+  const size=Math.max(rect.width,rect.height);
+  r.style.width=r.style.height=size+'px';
+  const x=(ev.clientX||rect.left+rect.width/2)-rect.left-size/2;
+  const y=(ev.clientY||rect.top+rect.height/2)-rect.top-size/2;
+  r.style.left=x+'px'; r.style.top=y+'px';
+  btn.appendChild(r); setTimeout(()=>r.remove(),500);
+}
+
+function handleKey(label, ev){
+  if(label==='C') return clearAll();
+  if(label==='⌫') return backspace();
+  if(label==='=') return equals();
+  if(label==='±'){ expr = expr.startsWith('-') ? expr.slice(1) : '-'+expr; return render(); }
+  if(['MC','MR','M+','M-','MS'].includes(label)) return memOp(label);
+  if(label in KEYMAP) return insert(KEYMAP[label]);
+  return insert(label);
+}
+
+function buildGrid(){
+  sciGrid.innerHTML='';
+  sciGrid.className = mode==='std' ? 'grid std' : 'grid';
+  const rows = mode==='std' ? stdKeys : [...stdKeys, ...sciExtra];
+  rows.forEach(row=>row.forEach(label=>{
+    const b=document.createElement('button'); b.className='key';
+    if(['MC','MR','M+','M-','MS'].includes(label)) b.classList.add('mem');
+    else if(!/[0-9]|\./.test(label) && !['(',')','C','⌫','±'].includes(label) && !(label in KEYMAP) && !['π','e'].includes(label) === false) {}
+    if(['÷','×','−','+'].includes(label)) b.classList.add('op');
+    if(label==='=') b.classList.add('eq');
+    if(label==='C') b.classList.add('clr');
+    if(mode==='sci' && sciExtra.flat().includes(label) && !['x²','x³','xʸ','10ˣ','eˣ','n!','1/x','⌊x⌋','⌈x⌉','mod','π','e','φ','Nₐ','c'].includes(label)===false && /\($/.test(label)===false && !['π','e','φ','Nₐ','c'].includes(label)) b.classList.add('fn');
+    if(mode==='sci' && sciExtra.flat().includes(label) && /\($/.test(label)) b.classList.add('fn');
+    b.textContent=label;
+    if(label in TIPSKEY()) {}
+    b.addEventListener('click', ev=>{ ripple(b,ev); handleKey(label,ev); });
+    const tipKey = tipFor(label);
+    if(tipKey){
+      b.addEventListener('mouseenter', ev=>showTip(ev, TIPS[tipKey]));
+      b.addEventListener('mouseleave', hideTip);
+    }
+    sciGrid.appendChild(b);
+  }));
+  // equals button appended separately for scientific (5-col) full width row handled via std grid col span
+  const eq=document.createElement('button'); eq.className='key eq'; eq.textContent='=';
+  eq.style.gridColumn = mode==='std' ? 'span 4' : 'span 5';
+  eq.addEventListener('click', ev=>{ ripple(eq,ev); equals(); });
+  sciGrid.appendChild(eq);
+}
+function TIPSKEY(){ return {}; }
+function tipFor(label){
+  const map={'sin(':'sin','cos(':'cos','tan(':'tan','cot(':'cot','sec(':'sec','csc(':'csc','asin(':'asin','acos(':'acos','atan(':'atan','log(':'log','ln(':'ln','log2(':'log2','sqrt(':'sqrt','cbrt(':'cbrt','abs(':'abs','x²':'sq','x³':'cube','xʸ':'pow','10ˣ':'tenx','eˣ':'ex','n!':'fact','1/x':'recip','⌊x⌋':'floor','⌈x⌉':'ceil','mod':'mod'};
+  return map[label];
+}
+function showTip(ev,text){
+  const tip=document.getElementById('tooltip'); tip.textContent=text;
+  const rect=ev.target.getBoundingClientRect();
+  tip.style.left=rect.left+'px'; tip.style.top=(rect.top-32)+'px';
+  tip.classList.add('show');
+}
+function hideTip(){ document.getElementById('tooltip').classList.remove('show'); }
+
+// ---------- Keyboard support ----------
+window.addEventListener('keydown', e=>{
+  const k=e.key;
+  if(/[0-9.]/.test(k)) return insert(k);
+  if(['+','-','*','/','(',')','%','^'].includes(k)) return insert(k);
+  if(k==='Enter'||k==='='){ e.preventDefault(); return equals(); }
+  if(k==='Backspace') return backspace();
+  if(k==='Escape') return clearAll();
+});
+
+buildGrid();
+renderHistory();
+render();
+</script>
+</body>
+</html>
